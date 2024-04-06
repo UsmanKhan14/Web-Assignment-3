@@ -1,63 +1,71 @@
 /********************************************************************************
-*  WEB322 – Assignment 03
+*  WEB322 – Assignment 04
 * 
 *  I declare that this assignment is my own work in accordance with Seneca's
 *  Academic Integrity Policy:
 * 
 *  https://www.senecacollege.ca/about/policies/academic-integrity-policy.html
 * 
-*  Name: Usman Ali Student ID: 105451223 Date: 01/03/2024
+*  Name: Usman Ali Student ID: 105451223 Date: 
 *
 *  Published URL: ___________________________________________________________
 *
 ********************************************************************************/
+const legoData = require("./modules/legoSets"); // Ensure this module exists
 const express = require('express');
-const path = require('path');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware to serve static files from 'public' and set 'ejs' as the view engine
 app.use(express.static('public'));
+app.set('view engine', 'ejs');
 
 // Routes
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'home.html'));
+  res.render('home');
 });
 
 app.get('/about', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'about.html'));
+  res.render('about');
 });
 
-app.get('/lego/sets', (req, res) => {
-  const theme = req.query.theme;
-  if (theme) {
-    // Fetch Lego data based on theme
-    // Example: Fetch Lego sets with theme = theme
-    // Replace the below code with your data retrieval logic
-    res.send(`Fetching Lego sets for theme: ${theme}`);
-  } else {
-    // Fetch all unfiltered Lego data
-    // Example: Fetch all Lego sets
-    // Replace the below code with your data retrieval logic
-    res.send('Fetching all Lego sets');
+app.get('/lego/sets', async (req, res) => {
+  try {
+    const theme = req.query.theme || 'all';
+    const sets = theme !== 'all' ? await legoData.getSetsByTheme(theme) : await legoData.getAllSets();
+    res.render('sets', { sets: sets, theme: theme });
+  } catch (err) {
+    res.status(404).render('404', { message: "Failed to load LEGO sets." });
   }
 });
 
-app.get('/lego/sets/:set_num', (req, res) => {
-  const set_num = req.params.set_num;
-  // Fetch Lego set with set_num
-  // Example: Fetch Lego set with set_num = set_num
-  // Replace the below code with your data retrieval logic
-  res.send(`Fetching Lego set with set_num: ${set_num}`);
+
+app.get('/lego/sets', async (req, res) => {
+  try {
+    const theme = req.query.theme || 'all';
+    const sets = theme !== 'all' ? await legoData.getSetsByTheme(theme) : await legoData.getAllSets();
+    if (sets.length === 0) {
+      throw new Error(`No sets found for the theme: ${theme}`);
+    }
+    res.render('sets', { sets: sets, theme: theme });
+  } catch (err) {
+    res.status(404).render('404', { message: err.message });
+  }
 });
+
+
+
 
 // Custom 404 route
 app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, 'views', '404.html'));
+  res.status(404).render('404', { message: "The page you are looking for doesn't exist." });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+// Initialize legoData and start server
+legoData.initialize().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}).catch(err => {
+  console.error("Failed to initialize data module:", err);
 });
